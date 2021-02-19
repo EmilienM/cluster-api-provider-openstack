@@ -22,11 +22,11 @@ require (
 	go4.org v0.0.0-20191010144846-132d2879e1e9 // indirect
 	gopkg.in/yaml.v2 v2.3.0
 	k8s.io/api v0.19.2
-	k8s.io/apimachinery v0.19.2
+	k8s.io/apimachinery v0.20.4
 	k8s.io/client-go v0.19.2
 	k8s.io/cluster-bootstrap v0.0.0-20190202014938-c9acc0c1bea2
 	k8s.io/klog v1.0.0
-	k8s.io/klog/v2 v2.3.0
+	k8s.io/klog/v2 v2.4.0
 	sigs.k8s.io/controller-runtime v0.6.2
 	sigs.k8s.io/yaml v1.2.0
 )
