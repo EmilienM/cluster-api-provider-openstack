@@ -12,7 +12,7 @@ require (
 	github.com/go-logr/logr v0.2.1
 	github.com/gophercloud/gophercloud v0.14.0
 	github.com/gophercloud/utils v0.0.0-20201221031838-d93cf4b3fa50
-	github.com/onsi/ginkgo v1.14.1
+	github.com/onsi/ginkgo v1.15.2
 	github.com/onsi/gomega v1.10.2
 	github.com/openshift/api v0.0.0-20201019163320-c6a5ec25f267
 	github.com/openshift/client-go v0.0.0-20201020074620-f8fd44879f7c
