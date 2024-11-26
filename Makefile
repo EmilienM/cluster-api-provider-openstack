@@ -23,6 +23,9 @@ include $(ROOT_DIR_RELATIVE)/common.mk
 export GO111MODULE=on
 unexport GOPATH
 
+# Go
+GO_VERSION ?= 1.22.7
+
 # Directories.
 ARTIFACTS ?= $(REPO_ROOT)/_artifacts
 TOOLS_DIR := hack/tools
@@ -76,7 +79,6 @@ STAGING_BUCKET ?= artifacts.k8s-staging-capi-openstack.appspot.com
 BUCKET ?= $(STAGING_BUCKET)
 PROD_REGISTRY ?= registry.k8s.io/capi-openstack
 REGISTRY ?= $(STAGING_REGISTRY)
-RELEASE_TAG ?= $(shell git describe --abbrev=0 2>/dev/null)
 PULL_BASE_REF ?= $(RELEASE_TAG) # PULL_BASE_REF will be provided by Prow
 RELEASE_ALIAS_TAG ?= $(PULL_BASE_REF)
 RELEASE_DIR := out
@@ -378,8 +380,33 @@ staging-manifests:
 ##@ Release
 ## --------------------------------------
 
+# latest git tag for the commit, e.g., v0.3.10
+RELEASE_TAG ?= $(shell git describe --abbrev=0 2>/dev/null)
+## if we are on a pre-release, we have to determine the previous release for the release-notes generator.
+ifneq (,$(findstring -,$(RELEASE_TAG)))
+        # extract the major and minor version from the RELEASE_TAG
+        _RELEASE_TAG_MAJOR ?= $(word 1,$(subst ., ,$(RELEASE_TAG:v%=%)))
+        _RELEASE_TAG_MINOR ?= $(word 2,$(subst ., ,$(RELEASE_TAG:v%=%)))
+        # Find the previous release of the same major + minor version (including pre-releases) or the previous .0 minor release.
+        _PREVIOUS_RELEASE_TAG ?= $(shell git tag -l | grep -E -e '^v[0-9]+\.[0-9]+\.0+$$|^v$(_RELEASE_TAG_MAJOR)\.$(_RELEASE_TAG_MINOR)\.' | sort -V | grep -B1 $(RELEASE_TAG) | head -n 1 2>/dev/null)
+        # Set the argument for release-notes generator to provide the for pre-releases mandatory `--previous-release-version` flag.
+        RELEASE_NOTES_PRE_RELEASE_ARG ?= "--from=$(_PREVIOUS_RELEASE_TAG)"
+endif
+## set by Prow, ref name of the base branch, e.g., main
+RELEASE_DIR := out
+RELEASE_NOTES_DIR := _releasenotes
+
+.PHONY: $(RELEASE_DIR)
 $(RELEASE_DIR):
-	mkdir -p $@
+	mkdir -p $(RELEASE_DIR)/
+ 
+.PHONY: $(RELEASE_NOTES_DIR)
+$(RELEASE_NOTES_DIR):
+	mkdir -p $(RELEASE_NOTES_DIR)/
+ 
+.PHONY: $(BUILD_DIR)
+$(BUILD_DIR):
+	@mkdir -p $(BUILD_DIR)
 
 .PHONY: list-staging-releases
 list-staging-releases: ## List staging images for image promotion
@@ -454,9 +481,11 @@ upload-gh-artifacts: $(GH) ## Upload artifacts to Github release
 release-alias-tag: # Adds the tag to the last build tag.
 	gcloud container images add-tag -q $(CONTROLLER_IMG):$(TAG) $(CONTROLLER_IMG):$(RELEASE_ALIAS_TAG)
 
-.PHONY: release-notes
-release-notes: $(RELEASE_NOTES) ## Generate release notes
-	$(RELEASE_NOTES) $(RELEASE_NOTES_ARGS)
+.PHONY: generate-release-notes ## Generate release notes
+generate-release-notes: $(RELEASE_NOTES_DIR) $(RELEASE_NOTES)
+	# Reset the file
+	echo -n > $(RELEASE_NOTES_DIR)/$(RELEASE_TAG).md
+	$(RELEASE_NOTES) $(RELEASE_NOTES_PRE_RELEASE_ARG) >> $(RELEASE_NOTES_DIR)/$(RELEASE_TAG).md
 
 .PHONY: templates
 templates: ## Generate cluster templates
@@ -570,3 +599,12 @@ compile-e2e: ## Test e2e compilation
 
 .PHONY: FORCE
 FORCE:
+
+## --------------------------------------    
+## Helpers
+## --------------------------------------
+
+##@ helpers:
+
+go-version: ## Print the go version we use to compile our binaries and images
+        @echo $(GO_VERSION)
